@@ -7,12 +7,12 @@ version = "0.1.0"
 category = "isaaclab"
 readme  = "README.md"
 
-title = "Extension Template"
-author = "Isaac Lab Project Developers"
-maintainer = "Isaac Lab Project Developers"
-description="Extension Template for Isaac Lab"
-repository = "https://github.com/isaac-sim/IsaacLab.git"
-keywords = ["extension", "template", "isaaclab"]
+title = "Stage 1: Pure RL Baseline — Anymal D Rough Terrain Locomotion"
+author = "louqimin"
+maintainer = "louqimin"
+description="Stage 1 of isaaclab-drl-mpc-dynamic: PPO baseline for Anymal D rough terrain locomotion using rsl_rl."
+repository = "https://github.com/louqimin/isaaclab-drl-mpc-dynamic.git"
+keywords = ["isaaclab", "anymal", "locomotion", "rsl_rl", "ppo", "stage1"]
 
 [dependencies]
 "isaaclab" = {}
