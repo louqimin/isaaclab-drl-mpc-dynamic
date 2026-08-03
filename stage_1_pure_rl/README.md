@@ -1,135 +1,97 @@
-# Template for Isaac Lab Projects
+# Stage 1 — Pure RL: Anymal-D locomotion on rough terrain
 
-## Overview
+PPO baseline for the [isaaclab-drl-mpc-dynamic](../README.md) project: an ANYbotics Anymal-D
+quadruped learns to walk over procedurally generated rough terrain in Isaac Lab, trained with
+[`rsl_rl`](https://github.com/leggedrobotics/rsl_rl). This policy is the learning-based reference
+that stage 2 (MPC + WBC) and stage 3 (hybrid) will be compared against.
 
-This project/repository serves as a template for building projects or extensions based on Isaac Lab.
-It allows you to develop in an isolated environment, outside of the core Isaac Lab repository.
+![Anymal-D walking on rough terrain](docs/stage1_demo.gif)
 
-**Key Features:**
+*One of 32 parallel evaluation environments (the fixed viewport camera covers a single robot).
+Green arrow = commanded base velocity, blue arrow = measured base velocity — their overlap is the
+velocity-tracking quality made visible.*
 
-- `Isolation` Work outside the core Isaac Lab repository, ensuring that your development efforts remain self-contained.
-- `Flexibility` This template is set up to allow your code to be run as an extension in Omniverse.
+## Results
 
-**Keywords:** extension, template, isaaclab
+Final numbers after 1500 iterations × 4096 parallel envs (≈147M env steps, 57.6 min on a single
+RTX 5070 Ti 16 GB, ~43k steps/s):
 
-## Installation
+| Metric | Value | Reading |
+|---|---|---|
+| Mean episode reward | **17.56** | up from −4.6 early in training |
+| Mean episode length | **930 / 1000 steps** | most episodes survive the full 20 s |
+| Time-out terminations | **92.5%** | only 7.5% end early by base contact (fall) |
+| Velocity-tracking reward (`track_lin_vel_xy_exp`) | **0.83** (ceiling ≈ 1.0) | main task term near saturation |
+| Linear velocity error (xy) | **0.31 m/s** | tracking residual on rough terrain |
+| Terrain curriculum level | **5.89 / 9** (peak ≈ 6.3) | promotion/demotion equilibrium around level 6 |
+| Mean action std | 0.86 → **0.41** | exploration noise collapses as the policy commits |
 
-- Install Isaac Lab by following the [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
-  We recommend using the conda or uv installation as it simplifies calling Python scripts from the terminal.
+<p>
+  <img src="docs/mean_reward.png" width="49%" alt="Mean episode reward over 1500 iterations">
+  <img src="docs/terrain_levels.png" width="49%" alt="Terrain curriculum level over 1500 iterations">
+</p>
 
-- Clone or copy this project/repository separately from the Isaac Lab installation (i.e. outside the `IsaacLab` directory):
+The terrain curve has the expected curriculum shape: envs start spread over levels 0–9
+(mean ≈ 3.5), collapse toward easy terrain while the policy is still random, then climb as walking
+emerges and settle into a promotion/demotion equilibrium around level 6 — a capability plateau,
+not a regression.
 
-- Using a python interpreter that has Isaac Lab installed, install the library in editable mode using:
-
-    ```bash
-    # use 'PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-    python -m pip install -e source/stage_1_pure_rl
-
-- Verify that the extension is correctly installed by:
-
-    - Listing the available tasks:
-
-        Note: It the task name changes, it may be necessary to update the search pattern `"Template-"`
-        (in the `scripts/list_envs.py` file) so that it can be listed.
-
-        ```bash
-        # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-        python scripts/list_envs.py
-        ```
-
-    - Running a task:
-
-        ```bash
-        # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-        python scripts/<RL_LIBRARY>/train.py --task=<TASK_NAME>
-        ```
-
-    - Running a task with dummy agents:
-
-        These include dummy agents that output zero or random agents. They are useful to ensure that the environments are configured correctly.
-
-        - Zero-action agent
-
-            ```bash
-            # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-            python scripts/zero_agent.py --task=<TASK_NAME>
-            ```
-        - Random-action agent
-
-            ```bash
-            # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-            python scripts/random_agent.py --task=<TASK_NAME>
-            ```
-
-### Set up IDE (Optional)
-
-To setup the IDE, please follow these instructions:
-
-- Run VSCode Tasks, by pressing `Ctrl+Shift+P`, selecting `Tasks: Run Task` and running the `setup_python_env` in the drop down menu.
-  When running this task, you will be prompted to add the absolute path to your Isaac Sim installation.
-
-If everything executes correctly, it should create a file .python.env in the `.vscode` directory.
-The file contains the python paths to all the extensions provided by Isaac Sim and Omniverse.
-This helps in indexing all the python modules for intelligent suggestions while writing code.
-
-### Setup as Omniverse Extension (Optional)
-
-We provide an example UI extension that will load upon enabling your extension defined in `source/stage_1_pure_rl/stage_1_pure_rl/ui_extension_example.py`.
-
-To enable your extension, follow these steps:
-
-1. **Add the search path of this project/repository** to the extension manager:
-    - Navigate to the extension manager using `Window` -> `Extensions`.
-    - Click on the **Hamburger Icon**, then go to `Settings`.
-    - In the `Extension Search Paths`, enter the absolute path to the `source` directory of this project/repository.
-    - If not already present, in the `Extension Search Paths`, enter the path that leads to Isaac Lab's extension directory directory (`IsaacLab/source`)
-    - Click on the **Hamburger Icon**, then click `Refresh`.
-
-2. **Search and enable your extension**:
-    - Find your extension under the `Third Party` category.
-    - Toggle it to enable your extension.
-
-## Code formatting
-
-We have a pre-commit template to automatically format your code.
-To install pre-commit:
+Regenerate both figures from the TensorBoard logs:
 
 ```bash
-pip install pre-commit
+python scripts/plot_training_curves.py            # picks the latest run automatically
+python scripts/plot_training_curves.py --run logs/rsl_rl/stage_1_pure_rl/2026-08-03_00-44-21
 ```
 
-Then you can run pre-commit with:
+## Setup
+
+| Component | Value |
+|---|---|
+| Robot | Anymal-D (`ANYMAL_D_CFG`) |
+| Terrain | Isaac Lab rough-terrain generator, 10-level curriculum (0–9) |
+| Observations | 235-dim (proprioception + velocity command + 187-dim height scan) |
+| Actions | 12 joint-position targets at 50 Hz |
+| Episode | 20 s (1000 control steps) |
+| Algorithm | PPO (`rsl_rl`) |
+| Networks | actor & critic MLPs, 235 → 512 → 256 → 128 → 12 / 1, ELU |
+| Task ID | `Stage-1-Pure-Rl-v0` |
+
+## Reproduce
+
+Install [Isaac Lab](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html)
+first, then install this extension into the same Python environment:
 
 ```bash
-pre-commit run --all-files
+python -m pip install -e source/stage_1_pure_rl
 ```
 
-## Troubleshooting
+Train (57.6 min on an RTX 5070 Ti; reduce `--num_envs` if you run out of VRAM):
 
-### Pylance Missing Indexing of Extensions
-
-In some VsCode versions, the indexing of part of the extensions is missing.
-In this case, add the path to your extension in `.vscode/settings.json` under the key `"python.analysis.extraPaths"`.
-
-```json
-{
-    "python.analysis.extraPaths": [
-        "<path-to-ext-repo>/source/stage_1_pure_rl"
-    ]
-}
+```bash
+python scripts/rsl_rl/train.py --task Stage-1-Pure-Rl-v0 --num_envs 4096 --max_iterations 1500 --headless --seed 1
 ```
 
-### Pylance Crash
+Watch the curves during or after training:
 
-If you encounter a crash in `pylance`, it is probable that too many files are indexed and you run out of memory.
-A possible solution is to exclude some of omniverse packages that are not used in your project.
-To do so, modify `.vscode/settings.json` and comment out packages under the key `"python.analysis.extraPaths"`
-Some examples of packages that can likely be excluded are:
-
-```json
-"<path-to-isaac-sim>/extscache/omni.anim.*"         // Animation packages
-"<path-to-isaac-sim>/extscache/omni.kit.*"          // Kit UI tools
-"<path-to-isaac-sim>/extscache/omni.graph.*"        // Graph UI tools
-"<path-to-isaac-sim>/extscache/omni.services.*"     // Services tools
-...
+```bash
+tensorboard --logdir logs/rsl_rl/stage_1_pure_rl --port 6006 --bind_all
 ```
+
+Roll out the newest checkpoint and record a 12 s video (600 steps × 0.02 s):
+
+```bash
+python scripts/rsl_rl/play.py --task Stage-1-Pure-Rl-v0 --num_envs 32 --headless --video --video_length 600
+```
+
+Artifacts land in `logs/rsl_rl/stage_1_pure_rl/<timestamp>/`: checkpoints (`model_*.pt`), the exact
+configs (`params/`), a `git/` snapshot of the working tree at launch, TensorBoard events, and videos
+under `videos/play/`. The raw demo video behind the GIF above is committed at
+[`docs/stage1_demo.mp4`](docs/stage1_demo.mp4).
+
+## Deferred (optional follow-ups)
+
+- PPO re-implemented from scratch in PyTorch (originally roadmap W2)
+- SAC comparison on the same task
+
+Both are deliberately deferred: the `rsl_rl` PPO baseline above is the stage-1 deliverable that
+stages 2 and 3 compare against.
