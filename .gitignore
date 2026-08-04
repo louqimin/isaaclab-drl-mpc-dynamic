@@ -470,3 +470,4 @@ tensorboard/
 # Isaac Sim cache
 _isaac_sim/
 kit-cache/
+.vscode/
